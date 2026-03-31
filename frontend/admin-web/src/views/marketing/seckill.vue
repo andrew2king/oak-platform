@@ -31,7 +31,7 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-icon hot">
-              <el-icon><Fire /></el-icon>
+              <el-icon><Star /></el-icon>
             </div>
             <div class="stat-content">
               <div class="stat-value">{{ seckillStats.totalActivities }}</div>
@@ -254,7 +254,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { Clock, Fire, Timer, User, ShoppingCart, Money, TrendCharts } from '@element-plus/icons-vue'
+import { Clock, Timer, User, ShoppingCart, Money, TrendCharts, Star } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
