@@ -1,0 +1,163 @@
+# Oak Platform Istio 配置
+
+## 服务网格配置
+
+### 全局配置
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: oak-istio
+spec:
+  profile: default
+  meshConfig:
+    accessLogFile: /dev/stdout
+    enableAutoMtls: true
+    defaultConfig:
+      tracing:
+        zipkin:
+          address: jaeger-collector.monitoring:9411
+    extensionProviders:
+    - name: prometheus
+      prometheus:
+        port: 15020
+        path: /stats/prometheus
+  values:
+    global:
+      mtls:
+        enabled: true
+    pilot:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2048Mi
+    telemetry:
+      enabled: true
+      v2:
+        enabled: true
+        prometheus:
+          enabled: true
+
+---
+## 流量管理策略
+
+# 默认目标规则 - 启用熔断
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: oak-platform
+spec:
+  host: "*.oak-platform.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 5s
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+
+---
+## 网关配置
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: oak-gateway
+  namespace: oak-platform
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: oak-tls-secret
+    hosts:
+    - "*"
+
+---
+## 虚拟服务 - API路由
+
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-routing
+  namespace: oak-platform
+spec:
+  hosts:
+  - "api.oak-platform.com"
+  gateways:
+  - oak-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: product-service
+        port:
+          number: 8080
+  - match:
+    - uri:
+        prefix: /api/v1/orders
+    route:
+    - destination:
+        host: order-service
+        port:
+          number: 8080
+  - match:
+    - uri:
+        prefix: /api/v1/members
+    route:
+    - destination:
+        host: member-service
+        port:
+          number: 8080
+  - match:
+    - uri:
+        prefix: /api/v1/inventory
+    route:
+    - destination:
+        host: inventory-service
+        port:
+          number: 8080
+
+---
+## 服务入口 - 外部服务访问
+
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-apis
+  namespace: oak-platform
+spec:
+  hosts:
+  - api.weixin.qq.com
+  - api.mch.weixin.qq.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS

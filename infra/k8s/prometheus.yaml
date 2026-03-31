@@ -1,0 +1,88 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  serviceAccountName: prometheus
+  serviceMonitorSelector:
+    matchLabels:
+      app: oak-platform
+  resources:
+    requests:
+      memory: 400Mi
+    limits:
+      memory: 800Mi
+  volumeClaimTemplate:
+    spec:
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: oak-platform-monitor
+  namespace: monitoring
+  labels:
+    app: oak-platform
+spec:
+  selector:
+    matchLabels:
+      app: oak-platform
+  namespaceSelector:
+    any: true
+  endpoints:
+  - port: metrics
+    path: /actuator/prometheus
+    interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: oak-platform-rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: oak-platform.rules
+    rules:
+    - alert: HighErrorRate
+      expr: |
+        sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+        /
+        sum(rate(http_server_requests_seconds_count[5m])) > 0.05
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High error rate detected
+        description: Error rate is {{ $value | humanizePercentage }}
+
+    - alert: HighLatency
+      expr: |
+        histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High latency detected
+        description: 99th percentile latency is {{ $value }}s
+
+    - alert: PodDown
+      expr: up{job="kubernetes-pods"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: Pod {{ $labels.pod }} is down
+
+    - alert: HighMemoryUsage
+      expr: |
+        container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High memory usage on {{ $labels.pod }}
+        description: Memory usage is {{ $value | humanizePercentage }}
