@@ -18,16 +18,22 @@
           <el-badge :value="3" class="cart-badge">
             <el-button :icon="ShoppingCart" circle @click="$router.push('/cart')" />
           </el-badge>
-          <el-dropdown>
-            <el-button :icon="User" circle />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="$router.push('/member')">个人中心</el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/orders')">我的订单</el-dropdown-item>
-                <el-dropdown-item divided>退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <template v-if="authStore.isAuthenticated">
+            <el-dropdown>
+              <el-button :icon="User" circle />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="$router.push('/member')">个人中心</el-dropdown-item>
+                  <el-dropdown-item @click="$router.push('/orders')">我的订单</el-dropdown-item>
+                  <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+          <template v-else>
+            <el-button type="primary" size="small" @click="$router.push('/login')">登录</el-button>
+            <el-button size="small" @click="$router.push('/register')">注册</el-button>
+          </template>
         </div>
       </div>
       <!-- 分类导航 -->
@@ -96,8 +102,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, ShoppingCart, User } from '@element-plus/icons-vue'
 import { productAPI, type Category } from '@/api/product'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const searchText = ref('')
 const categories = ref<Category[]>([])
 
@@ -109,6 +117,11 @@ const handleSearch = () => {
 
 const goToCategory = (catId?: number) => {
   router.push({ path: '/category', query: catId ? { category: catId } : {} })
+}
+
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/')
 }
 
 onMounted(async () => {

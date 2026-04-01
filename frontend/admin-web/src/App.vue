@@ -111,13 +111,13 @@
           </el-badge>
           <el-dropdown>
             <span class="user-info">
-              <el-avatar :size="32">A</el-avatar>
-              <span>管理员</span>
+              <el-avatar :size="32" :src="authStore.user?.avatar">A</el-avatar>
+              <span>{{ authStore.user?.nickname || '管理员' }}</span>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item>个人中心</el-dropdown-item>
-                <el-dropdown-item divided>退出登录</el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -133,16 +133,24 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   DataBoard, ShoppingBag, Document, Box, User, Present,
   TrendCharts, Setting, Fold, Expand, Bell
 } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 const isCollapse = ref(false)
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta?.title as string)
+
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/login')
+}
 </script>
 
 <style>
